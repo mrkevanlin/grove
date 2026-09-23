@@ -19,8 +19,12 @@ struct MenuView: View {
                         Label(err, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange).font(.caption)
                     }
-                    ForEach(sup.config.repos, id: \.name) { repo in
-                        repoSection(repo)
+                    if sup.config.repos.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(sup.config.repos, id: \.name) { repo in
+                            repoSection(repo)
+                        }
                     }
                 }
                 .padding(12)
@@ -43,14 +47,38 @@ struct MenuView: View {
         HStack(spacing: 8) {
             Text("Grove").font(.headline)
             Spacer()
-            TextField("Filter worktrees", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 170)
+            if !sup.config.repos.isEmpty {
+                TextField("Filter worktrees", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 170)
+            }
             Button { Task { await sup.reloadConfig() } } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless)
                 .help("Reload config & rescan worktrees")
         }
         .padding(12)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "folder.badge.plus")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text("No watched repos")
+                .font(.callout.weight(.medium))
+            Text("Add a git repo and its worktrees and dev servers will show up here.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Add repo…") { addRepo() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 12)
     }
 
     @ViewBuilder
