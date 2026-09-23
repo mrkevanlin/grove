@@ -36,6 +36,11 @@ public struct RepoConfig: Codable, Hashable, Sendable {
     public var expandedPath: String { (path as NSString).expandingTildeInPath }
 }
 
+public enum AppIdentity {
+    /// macOS bundle id. `scripts/install.sh` reads this assignment; keep it on one line.
+    public static let bundleID = "dev.kevanlin.grove"
+}
+
 public struct AppConfig: Codable, Sendable {
     /// Port of the local control API that grove talks to (127.0.0.1 only).
     public var apiPort: Int
@@ -48,16 +53,8 @@ public struct AppConfig: Codable, Sendable {
 
     public static let defaultAPIPort = 7787
 
-    public static let starter = AppConfig(apiPort: defaultAPIPort, repos: [
-        RepoConfig(name: "troupe", path: "~/Dev/Troupe", services: [
-            ServiceConfig(name: "be", command: "pnpm dev:be", port: 3000),
-            ServiceConfig(name: "fe", command: "pnpm dev:fe", port: 3001),
-            ServiceConfig(name: "worker", command: "pnpm dev:worker"),
-        ]),
-        RepoConfig(name: "marketing", path: "~/Dev/troupe-marketing-website", services: [
-            ServiceConfig(name: "web", command: "pnpm dev -p 3100", port: 3100),
-        ]),
-    ])
+    /// Written only when `~/.config/grove/config.json` does not exist yet. Add repos with `grove repo add`.
+    public static let starter = AppConfig(apiPort: defaultAPIPort, repos: [])
 
     public static func load() -> AppConfig {
         if let data = try? Data(contentsOf: Paths.configFile),
@@ -139,7 +136,7 @@ public struct WorktreeInfo: Codable, Sendable {
     }
 }
 
-/// Identifies a worktree: either explicitly ("troupe/main", "main", a branch name, a path) or by the caller's cwd.
+/// Identifies a worktree: either explicitly ("repo/main", "main", a branch name, a path) or by the caller's cwd.
 public struct Target: Codable, Sendable {
     public var worktree: String?
     public var cwd: String?

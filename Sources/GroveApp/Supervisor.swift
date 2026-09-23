@@ -135,7 +135,10 @@ final class Supervisor: ObservableObject {
         }.value
         worktrees = scannedTrees
         let cache = sessionCache
-        let (sessions, newCache) = await Task.detached { ClaudeSessionScanner.scan(cache: cache) }.value
+        let sessionTask: Task<(sessions: [ClaudeSession], cache: ClaudeSessionScanner.Cache), Never> = Task.detached {
+            ClaudeSessionScanner.scan(cache: cache)
+        }
+        let (sessions, newCache) = await sessionTask.value
         sessionCache = newCache
         let allTrees = scannedTrees.values.flatMap { $0 }
         var bySession: [String: [ClaudeSession]] = [:]

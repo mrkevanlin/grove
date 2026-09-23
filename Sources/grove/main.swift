@@ -20,7 +20,7 @@ USAGE
   grove reload                          Re-read ~/.config/grove/config.json
 
 FLAGS
-  -w, --worktree WT   Worktree: "troupe/main", "main", a branch name, or a path
+  -w, --worktree WT   Worktree: "repo/main", "main", a branch name, or a path
   --always            Keep it running: auto-restart on crash or hang
   --takeover          If another worktree holds the port, stop it and start this one
   --json              Machine-readable output
@@ -92,7 +92,7 @@ func request(_ method: String, _ path: String, _ body: Encodable? = nil) -> APIR
     if call("GET", "health", timeout: 2) == nil {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        p.arguments = ["-g", "-b", "ai.troupe.grove"]
+        p.arguments = ["-g", "-b", AppIdentity.bundleID]
         try? p.run()
         p.waitUntilExit()
         for _ in 0..<40 {

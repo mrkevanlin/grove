@@ -152,7 +152,10 @@ enum Sys {
     /// For a server we didn't start: the listener plus its parents up to (not including) the first shell,
     /// so killing them frees the port without taking down whoever launched it.
     static func externalProcessChain(_ pid: pid_t) -> [pid_t] {
-        let stopAt: Set<String> = ["zsh", "bash", "sh", "fish", "login", "launchd", "claude", "tmux", "Terminal", "iTerm2"]
+        let stopAt: Set<String> = [
+            "zsh", "bash", "sh", "fish", "login", "launchd", "tmux", "Terminal", "iTerm2",
+            "claude", "Claude", "Cursor", "cursor", "Codex", "codex", "ChatGPT", "chatgpt",
+        ]
         var chain: [pid_t] = [pid]
         var current = pid
         for _ in 0..<8 {

@@ -16,10 +16,14 @@ if pgrep -xq GroveApp; then
   mkdir -p "$HOME/.config/grove"
   touch "$HOME/.config/grove/.restore-after-upgrade"
 fi
-osascript -e 'tell application id "ai.troupe.grove" to quit' >/dev/null 2>&1 || true
+BUNDLE_ID="$(sed -n 's/^[[:space:]]*public static let bundleID = "\([^"]*\)".*/\1/p' "$ROOT/Sources/GroveCore/Config.swift")"
+if [ -z "$BUNDLE_ID" ]; then
+  echo "Could not read bundle ID from Sources/GroveCore/Config.swift" >&2
+  exit 1
+fi
+osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null 2>&1 || true
 
 # One-time migration from the old "DevServers" name.
-osascript -e 'tell application id "ai.troupe.devservers" to quit' >/dev/null 2>&1 || true
 sleep 1
 rm -rf "$HOME/Applications/DevServers.app"
 if [ -d "$HOME/.config/devservers" ] && [ ! -d "$HOME/.config/grove" ]; then
@@ -36,12 +40,12 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
 cp "$BUILD/GroveApp" "$APP/Contents/MacOS/GroveApp"
 cp "$BUILD/grove" "$APP/Contents/Helpers/grove"
 cp "$ROOT"/Sources/GroveApp/Resources/*.png "$APP/Contents/Resources/"
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleIdentifier</key><string>ai.troupe.grove</string>
+  <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundleName</key><string>Grove</string>
   <key>CFBundleDisplayName</key><string>Grove</string>
   <key>CFBundleExecutable</key><string>GroveApp</string>
@@ -58,6 +62,23 @@ codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
 ln -sf "$APP/Contents/Helpers/grove" "$BIN_DIR/grove"
 # Old name, kept as an alias for now.
 ln -sf "$APP/Contents/Helpers/grove" "$BIN_DIR/devctl"
+
+# One skill, linked where Claude Code, Cursor, and ChatGPT/Codex look for user skills.
+link_skill() {
+  local dest="$1"
+  mkdir -p "$(dirname "$dest")"
+  if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+    echo "Left existing skill in place: $dest"
+    return
+  fi
+  ln -sfn "$ROOT/skills/grove" "$dest"
+  echo "Skill -> $dest"
+}
+link_skill "$HOME/.claude/skills/grove"
+link_skill "$HOME/.cursor/skills/grove"
+link_skill "$HOME/.agents/skills/grove"
+link_skill "$HOME/.codex/skills/grove"
+
 open "$APP"
 
 echo "Installed $APP"
