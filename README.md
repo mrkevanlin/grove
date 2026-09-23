@@ -78,8 +78,10 @@ grove ls                        # repos and worktrees
 
 ## Claude Code
 
-`claude/skills/grove/SKILL.md` teaches Claude Code sessions to use `grove` instead of running `pnpm dev` themselves. To install it for all your projects:
+`claude/skills/grove/SKILL.md` teaches Claude Code sessions to use `grove` instead of running `pnpm dev` themselves. It's opt-in and only lives on your machine. Link it once:
 
 ```bash
-ln -s "$PWD/claude/skills/grove" ~/.claude/skills/grove
+mkdir -p ~/.claude/skills && ln -s ~/Dev/grove/claude/skills/grove ~/.claude/skills/grove
 ```
+
+Because it's a symlink, `git pull` keeps it up to date. It only takes effect in repos Grove watches. Elsewhere, or if the app isn't running, Claude carries on as usual.
