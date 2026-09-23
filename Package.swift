@@ -12,7 +12,8 @@ let package = Package(
     ],
     targets: [
         .target(name: "GroveCore"),
-        .executableTarget(name: "GroveApp", dependencies: ["GroveCore"]),
+        // Resources (menu bar icon) are copied into the .app by scripts/install.sh.
+        .executableTarget(name: "GroveApp", dependencies: ["GroveCore"], exclude: ["Resources"]),
         .executableTarget(name: "grove", dependencies: ["GroveCore"]),
     ]
 )

@@ -30,6 +30,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources" "$BIN_DIR"
 cp "$BUILD/GroveApp" "$APP/Contents/MacOS/GroveApp"
 cp "$BUILD/grove" "$APP/Contents/Helpers/grove"
+cp "$ROOT"/Sources/GroveApp/Resources/*.png "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -13,7 +13,13 @@ struct GroveMenuBarApp: App {
             MenuView().environmentObject(sup)
         } label: {
             let n = sup.activeCount
-            Image(systemName: sup.hasProblems ? "exclamationmark.triangle.fill" : "server.rack")
+            if sup.hasProblems {
+                Image(systemName: "exclamationmark.triangle.fill")
+            } else if let icon = MenuBarIcon.image {
+                Image(nsImage: icon)
+            } else {
+                Image(systemName: "tree") // running via `swift run`, outside the .app bundle
+            }
             if n > 0 { Text("\(n)") }
         }
         .menuBarExtraStyle(.window)
@@ -28,6 +34,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         MainActor.assumeIsolated { Supervisor.shared.stopAll() }
     }
+}
+
+enum MenuBarIcon {
+    /// Grove.png / Grove@2x.png from the app bundle, as a template so macOS tints it for the menu bar.
+    static let image: NSImage? = {
+        guard let img = NSImage(named: "Grove") else { return nil }
+        img.isTemplate = true
+        img.size = NSSize(width: 18, height: 18)
+        return img
+    }()
 }
 
 enum LaunchAtLogin {
