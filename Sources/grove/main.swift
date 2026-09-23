@@ -27,6 +27,7 @@ FLAGS
 
 EXIT CODES
   0 ok · 1 failed / not ready · 2 usage error · 3 app not reachable
+  4 current directory isn't in a watched worktree (status only)
 """
 
 // MARK: - Args
@@ -125,12 +126,12 @@ func tail(_ path: String, _ n: Int) -> String {
     return text.split(separator: "\n", omittingEmptySubsequences: false).suffix(n).joined(separator: "\n")
 }
 
-func emit(_ r: APIResponse, showFailureLogs: Bool = false) -> Never {
+func emit(_ r: APIResponse, showFailureLogs: Bool = false, code: Int32? = nil) -> Never {
     if json {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         print(String(decoding: (try? enc.encode(r)) ?? Data(), as: UTF8.self))
-        exit(r.ok ? 0 : 1)
+        exit(code ?? (r.ok ? 0 : 1))
     }
     if !r.message.isEmpty && !(r.ok && r.message == "ready") {
         (r.ok ? FileHandle.standardOutput : FileHandle.standardError).write(Data((r.message + "\n").utf8))
@@ -170,8 +171,17 @@ case "restart": action("restart")
 case "status", "st":
     let r = request("POST", "status", target)
     if !r.ok && worktree == nil {
-        // Not inside a worktree: show everything that's active instead.
-        emit(request("POST", "status", Target(worktree: nil, cwd: nil)))
+        // Not inside a watched worktree: say so (exit 4, so agents can tell), then show what's active elsewhere.
+        FileHandle.standardError.write(Data((r.message + "\n").utf8))
+        let all = request("POST", "status", Target(worktree: nil, cwd: nil))
+        if json {
+            emit(APIResponse(ok: false, message: r.message, services: all.services), code: 4)
+        }
+        if !all.services.isEmpty {
+            print("\nActive in other worktrees:")
+            printServices(all.services)
+        }
+        exit(4)
     }
     emit(r)
 

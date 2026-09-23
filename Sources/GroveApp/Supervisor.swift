@@ -30,6 +30,9 @@ struct Entry {
 private struct PersistedState: Codable {
     var always: [String] = []
     var pids: [String: Int32] = [:]
+    /// Services that were on (not always-on). Only restored after an upgrade; optional so older state files still decode.
+    var on: [String]? = nil
+    var savedAt: Date? = nil
 }
 
 @MainActor
@@ -54,6 +57,9 @@ final class Supervisor: ObservableObject {
     private var healthInFlight = false
     private var scanned = false
     private var pendingAlways: Set<String> = []
+    private var pendingOn: Set<String> = []
+    /// Process groups left over from the previous run, being shut down at launch.
+    private var leftoverGroups: [pid_t] = []
     private var shellEnvTask: Task<[String: String], Never>?
     private var timers: [Timer] = []
     private var api: APIServer?
@@ -158,6 +164,18 @@ final class Supervisor: ObservableObject {
                 runtimes[key, default: Runtime()].mode = .always
             }
             pendingAlways = []
+            let restore = pendingOn.filter { entries[$0] != nil }
+            pendingOn = []
+            if !restore.isEmpty {
+                Task {
+                    // Let the previous run's servers finish exiting first: e.g. `next dev` cleans up
+                    // .next/ on shutdown, and a new one started mid-cleanup dies on missing files.
+                    for _ in 0..<60 where leftoverGroups.contains(where: Sys.groupAlive) {
+                        try? await Task.sleep(for: .milliseconds(250))
+                    }
+                    for key in restore { start(key, mode: .on, takeover: false) }
+                }
+            }
         }
         healthTick()
     }
@@ -608,11 +626,14 @@ final class Supervisor: ObservableObject {
 
     private func persist() {
         var s = PersistedState()
+        s.savedAt = Date()
         for (k, rt) in runtimes {
             if rt.mode == .always { s.always.append(k) }
+            if rt.mode == .on && rt.status != .external { s.on = (s.on ?? []) + [k] }
             if let pid = rt.pid { s.pids[k] = pid }
         }
         s.always.append(contentsOf: pendingAlways)
+        if !pendingOn.isEmpty { s.on = (s.on ?? []) + Array(pendingOn) }
         guard let data = try? JSONEncoder().encode(s) else { return }
         try? FileManager.default.createDirectory(at: Paths.configDir, withIntermediateDirectories: true)
         try? data.write(to: Paths.stateFile, options: .atomic)
@@ -621,12 +642,22 @@ final class Supervisor: ObservableObject {
     private func restorePersistedState() {
         guard let data = try? Data(contentsOf: Paths.stateFile),
               let s = try? JSONDecoder().decode(PersistedState.self, from: data) else { return }
-        // Clean up process groups orphaned by a previous run of the app (crash / force quit).
-        for pid in s.pids.values where getpgid(pid) == pid {
-            let comm = Sys.run("/bin/ps", ["-o", "comm=", "-p", "\(pid)"], timeout: 2)
-            if comm.contains("zsh") { terminateGroup(pid) }
+        // Clean up process groups left by the previous run (upgrade, crash, force quit). The group leader
+        // may already be gone while its children linger, so check the group, and only when the state is
+        // recent, so a days-old pid that's been reused by something unrelated is never touched.
+        let recent = s.savedAt.map { Date().timeIntervalSince($0) < 600 } ?? false
+        for pid in s.pids.values where recent && pid > 1 && Sys.groupAlive(pid) {
+            terminateGroup(pid)
+            leftoverGroups.append(pid)
         }
         pendingAlways = Set(s.always)
+        // scripts/install.sh drops this marker before quitting the old copy, so an upgrade brings back
+        // everything that was running. A normal Quit only brings back always-on services.
+        let marker = Paths.configDir.appendingPathComponent(".restore-after-upgrade")
+        if FileManager.default.fileExists(atPath: marker.path) {
+            try? FileManager.default.removeItem(at: marker)
+            pendingOn = Set(s.on ?? [])
+        }
     }
 
     // MARK: - Logs

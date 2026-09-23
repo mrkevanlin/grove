@@ -73,7 +73,7 @@ grove ls                        # repos and worktrees
 - **Servers started elsewhere**: a server started from a terminal or by an agent is detected through its listening port and working directory. It shows up as **external** (blue) and can still be stopped.
 - **Logs**: `~/Library/Logs/Grove/<repo>/<worktree>/<service>.log`. Each log rotates at 5 MB.
 - **API**: HTTP on `127.0.0.1:<apiPort>`. Every request must include the header `X-Grove: 1`, and requests carrying an `Origin` header are rejected, so browser pages can't drive it.
-- **Quitting the app** stops every server it manages. Always-on services start again the next time the app launches.
+- **Quitting the app** stops every server it manages. Always-on services start again the next time the app launches. Reinstalling with `scripts/install.sh` is different: it brings back everything that was running.
 - **Claude sessions**: Grove reads the Claude desktop app's session files (`~/Library/Application Support/Claude/claude-code-sessions`) and matches each session to a worktree by its folder. Clicking the link opens `claude://code/continue?session=<id>`. Neither the files nor the link format is documented, so this can break when Claude updates. If it does, the links just stop appearing.
 
 ## Claude Code

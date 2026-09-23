@@ -10,8 +10,8 @@ Grove is a menu bar app that owns dev servers so they outlive agent sessions. Co
 Run `grove status` from the worktree.
 
 - **`command not found`, or exit code 3 (app not reachable):** Grove isn't installed or isn't running on this machine. Ignore this skill and start servers however you normally would.
-- **It says the directory "isn't inside a watched worktree":** this repo isn't managed by Grove. Ignore this skill and use the repo's normal dev commands. Don't nag the user about it. At most, mention once that `grove repo add <repo-root>` would bring it under Grove.
-- **It prints a table of services:** Grove manages this repo. Use the commands below and **don't** run `pnpm dev*` / `next dev` yourself, in the foreground or as a background task.
+- **Exit code 4 ("isn't inside a watched worktree"):** this repo isn't managed by Grove. Ignore this skill and use the repo's normal dev commands. Don't nag the user about it. At most, mention once that `grove repo add <repo-root>` would bring it under Grove.
+- **Exit code 0 with a table of services:** Grove manages this repo. Use the commands below and **don't** run `pnpm dev*` / `next dev` yourself, in the foreground or as a background task.
 
 ## Commands
 

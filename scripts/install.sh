@@ -10,7 +10,12 @@ cd "$ROOT"
 swift build -c release
 BUILD="$(swift build -c release --show-bin-path)"
 
-# Quit a running copy (it stops the servers it manages; always-on ones come back on relaunch).
+# Quit a running copy. It stops the servers it manages; the marker tells the new copy to start
+# everything that was on again (a normal Quit only brings back always-on servers).
+if pgrep -xq GroveApp; then
+  mkdir -p "$HOME/.config/grove"
+  touch "$HOME/.config/grove/.restore-after-upgrade"
+fi
 osascript -e 'tell application id "ai.troupe.grove" to quit' >/dev/null 2>&1 || true
 
 # One-time migration from the old "DevServers" name.
