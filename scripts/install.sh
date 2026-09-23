@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Builds Grove.app into ~/Applications and links the `grove` CLI into ~/.local/bin.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+APP="$HOME/Applications/Grove.app"
+BIN_DIR="$HOME/.local/bin"
+
+cd "$ROOT"
+swift build -c release
+BUILD="$(swift build -c release --show-bin-path)"
+
+# Quit a running copy (it stops the servers it manages; always-on ones come back on relaunch).
+osascript -e 'tell application id "ai.troupe.grove" to quit' >/dev/null 2>&1 || true
+
+# One-time migration from the old "DevServers" name.
+osascript -e 'tell application id "ai.troupe.devservers" to quit' >/dev/null 2>&1 || true
+sleep 1
+rm -rf "$HOME/Applications/DevServers.app"
+if [ -d "$HOME/.config/devservers" ] && [ ! -d "$HOME/.config/grove" ]; then
+  mv "$HOME/.config/devservers" "$HOME/.config/grove"
+fi
+if [ -d "$HOME/Library/Logs/DevServers" ] && [ ! -d "$HOME/Library/Logs/Grove" ]; then
+  mv "$HOME/Library/Logs/DevServers" "$HOME/Library/Logs/Grove"
+fi
+
+rm -rf "$APP"
+# The CLI lives in Helpers/: "grove" and "GroveApp" in one folder is fine, but "grove" next to a
+# "Grove" binary would collide on a case-insensitive filesystem.
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources" "$BIN_DIR"
+cp "$BUILD/GroveApp" "$APP/Contents/MacOS/GroveApp"
+cp "$BUILD/grove" "$APP/Contents/Helpers/grove"
+cat > "$APP/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>ai.troupe.grove</string>
+  <key>CFBundleName</key><string>Grove</string>
+  <key>CFBundleDisplayName</key><string>Grove</string>
+  <key>CFBundleExecutable</key><string>GroveApp</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSUIElement</key><true/>
+</dict>
+</plist>
+PLIST
+codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+
+ln -sf "$APP/Contents/Helpers/grove" "$BIN_DIR/grove"
+# Old name, kept as an alias for now.
+ln -sf "$APP/Contents/Helpers/grove" "$BIN_DIR/devctl"
+open "$APP"
+
+echo "Installed $APP"
+echo "grove -> $BIN_DIR/grove (devctl is an alias)"
+echo "Config: ~/.config/grove/config.json"
