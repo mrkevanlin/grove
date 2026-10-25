@@ -18,6 +18,7 @@ USAGE
   grove repo add PATH [--name NAME]     Watch another repo (services detected from package.json dev scripts)
   grove repo list                       Show watched repos and their services
   grove reload                          Re-read ~/.config/grove/config.json
+  grove prune [REPO]                    Delete idle worktrees (keeps main and anything running)
 
 FLAGS
   -w, --worktree WT   Worktree: "repo/main", "main", a branch name, or a path
@@ -233,6 +234,10 @@ case "repo":
 
 case "reload":
     emit(request("POST", "reload"))
+
+case "prune":
+    if args.count > 1 { fail("usage: grove prune [REPO]", code: 2) }
+    emit(request("POST", "prune", PruneRequest(repo: args.first)))
 
 default:
     fail("Unknown command '\(command)'\n\n\(usage)", code: 2)
