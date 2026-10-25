@@ -28,6 +28,9 @@ struct MenuView: View {
                     }
                 }
                 .padding(12)
+                // Don't let the scroll view stretch this to its own height, or the measurement
+                // feeds back and the panel grows to the cap, leaving a clear gap.
+                .fixedSize(horizontal: false, vertical: true)
                 .background(GeometryReader { geo in
                     Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
                 })
@@ -40,6 +43,8 @@ struct MenuView: View {
             footer
         }
         .frame(width: 400)
+        // MenuBarExtra's window is clear. Anything we don't paint shows the desktop.
+        .background(Color(nsColor: .windowBackgroundColor))
         .task { await sup.rescan() }
     }
 
@@ -106,8 +111,12 @@ struct MenuView: View {
                     ForEach(rest) { WorktreeCard(worktree: $0) }
                 }
                 if query.isEmpty {
-                    Button(expanded ? "Hide idle worktrees" : "Show \(rest.count) idle worktree\(rest.count == 1 ? "" : "s")") {
-                        if expanded { showAllRepos.remove(repo.name) } else { showAllRepos.insert(repo.name) }
+                    HStack(spacing: 12) {
+                        Button(expanded ? "Hide idle worktrees" : "Show \(rest.count) idle worktree\(rest.count == 1 ? "" : "s")") {
+                            if expanded { showAllRepos.remove(repo.name) } else { showAllRepos.insert(repo.name) }
+                        }
+                        Button("Prune") { confirmPrune(repo, idle: rest) }
+                            .help("Delete idle worktrees. The main checkout and anything running are kept.")
                     }
                     .buttonStyle(.link).font(.caption)
                 }
@@ -151,6 +160,29 @@ struct MenuView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task {
             let res = await sup.addRepo(path: url.path, name: nil)
+            Sys.notify("Grove", res.message)
+        }
+    }
+
+    private func confirmPrune(_ repo: RepoConfig, idle: [Worktree]) {
+        guard !idle.isEmpty else { return }
+        let alert = NSAlert()
+        let count = idle.count
+        alert.messageText = "Prune \(count) idle worktree\(count == 1 ? "" : "s")?"
+        let names = idle.map { wt -> String in
+            if let branch = wt.branch, branch != wt.name { return "\(wt.name) (\(branch))" }
+            return wt.name
+        }
+        let listed = names.prefix(8).joined(separator: ", ")
+        let more = names.count > 8 ? ", and \(names.count - 8) more" : ""
+        alert.informativeText = "This deletes \(listed)\(more). The main checkout stays. A worktree with uncommitted changes is left in place."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Prune")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Task {
+            let res = await sup.pruneIdle(repo: repo.name)
             Sys.notify("Grove", res.message)
         }
     }

@@ -214,6 +214,55 @@ final class Supervisor: ObservableObject {
                            repos: config.repos)
     }
 
+    /// Deletes idle linked worktrees (`git worktree remove`). The main checkout and any
+    /// worktree with a server on are kept. Git also refuses a worktree that has uncommitted changes.
+    func pruneIdle(repo name: String?) async -> APIResponse {
+        let repos: [RepoConfig]
+        if let name {
+            guard let repo = config.repos.first(where: { $0.name == name }) else {
+                return APIResponse(ok: false, message: "Unknown repo '\(name)'.")
+            }
+            repos = [repo]
+        } else {
+            repos = config.repos
+        }
+        var removed: [String] = []
+        var kept: [String] = []
+        for repo in repos {
+            let idle = (worktrees[repo.name] ?? []).filter { !$0.isMain && !isActive($0) }
+            for wt in idle {
+                let root = repo.expandedPath
+                let path = wt.path
+                let task: Task<Sys.CommandOutput, Never> = Task.detached {
+                    Sys.runCaptured("/usr/bin/git", ["-C", root, "worktree", "remove", path])
+                }
+                let result = await task.value
+                let label = "\(repo.name)/\(wt.name)"
+                if result.status == 0 {
+                    removed.append(label)
+                } else {
+                    let why = result.stderr
+                        .split(separator: "\n").first.map(String.init)?
+                        .replacingOccurrences(of: "fatal: ", with: "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let why, !why.isEmpty {
+                        kept.append("\(label) (\(why))")
+                    } else {
+                        kept.append(label)
+                    }
+                }
+            }
+        }
+        await rescan()
+        if removed.isEmpty && kept.isEmpty {
+            return APIResponse(ok: true, message: "No idle worktrees to prune.")
+        }
+        var parts: [String] = []
+        if !removed.isEmpty { parts.append("Removed \(removed.joined(separator: ", ")).") }
+        if !kept.isEmpty { parts.append("Left in place: \(kept.joined(separator: "; ")).") }
+        return APIResponse(ok: kept.isEmpty, message: parts.joined(separator: " "))
+    }
+
     // MARK: - Target resolution
 
     func resolveWorktree(_ target: Target) async -> Result<Worktree, String> {

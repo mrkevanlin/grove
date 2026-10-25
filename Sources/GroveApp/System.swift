@@ -23,6 +23,49 @@ enum Sys {
         return String(decoding: data, as: UTF8.self)
     }
 
+    struct CommandOutput: Sendable {
+        var status: Int32
+        var stdout: String
+        var stderr: String
+    }
+
+    /// Like `run`, but keeps the exit status and stderr. Stdout and stderr are read
+    /// together so a chatty command can't fill a pipe and stall.
+    static func runCaptured(_ launchPath: String, _ args: [String], timeout: TimeInterval = 60) -> CommandOutput {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: launchPath)
+        p.arguments = args
+        let out = Pipe()
+        let err = Pipe()
+        p.standardOutput = out
+        p.standardError = err
+        p.standardInput = FileHandle.nullDevice
+        do { try p.run() } catch {
+            return CommandOutput(status: 1, stdout: "", stderr: error.localizedDescription)
+        }
+        let deadline = DispatchTime.now() + timeout
+        DispatchQueue.global().asyncAfter(deadline: deadline) { if p.isRunning { p.terminate() } }
+        let group = DispatchGroup()
+        var outData = Data()
+        var errData = Data()
+        group.enter()
+        DispatchQueue.global().async {
+            outData = out.fileHandleForReading.readDataToEndOfFile()
+            group.leave()
+        }
+        group.enter()
+        DispatchQueue.global().async {
+            errData = err.fileHandleForReading.readDataToEndOfFile()
+            group.leave()
+        }
+        p.waitUntilExit()
+        group.wait()
+        return CommandOutput(
+            status: p.terminationStatus,
+            stdout: String(decoding: outData, as: UTF8.self),
+            stderr: String(decoding: errData, as: UTF8.self))
+    }
+
     // MARK: Login shell environment
 
     /// The user's interactive login-shell environment (so nvm/pnpm/volta PATHs work),

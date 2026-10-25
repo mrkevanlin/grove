@@ -124,6 +124,10 @@ final class APIServer {
             if let err = sup.configError { return APIResponse(ok: false, message: err) }
             return APIResponse(ok: true, message: "Reloaded \(Paths.configFile.path)", repos: sup.config.repos)
 
+        case ("POST", "/prune"):
+            let repo = (try? dec.decode(PruneRequest.self, from: req.body))?.repo
+            return await sup.pruneIdle(repo: repo)
+
         default:
             return APIResponse(ok: false, message: "no route \(req.method) \(req.path)")
         }

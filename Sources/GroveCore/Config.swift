@@ -160,6 +160,12 @@ public struct AddRepoRequest: Codable, Sendable {
     public init(path: String, name: String?) { self.path = path; self.name = name }
 }
 
+public struct PruneRequest: Codable, Sendable {
+    /// Watched repo name. Nil prunes idle worktrees in every watched repo.
+    public var repo: String?
+    public init(repo: String?) { self.repo = repo }
+}
+
 public struct APIResponse: Codable, Sendable {
     public var ok: Bool
     public var message: String

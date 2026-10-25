@@ -61,6 +61,7 @@ grove restart [svc...]
 grove logs fe -n 100 [-f]
 grove url fe
 grove ls                        # repos and worktrees
+grove prune [repo]              # delete idle worktrees; keeps main and anything running
 ```
 
 `-w <worktree>` targets another worktree. It accepts `repo/main`, a worktree folder name, a branch name, or a path.
